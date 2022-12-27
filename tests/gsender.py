@@ -3,7 +3,7 @@ from time import sleep
 from threading import Thread
 
 try:
-    port = Serial('COM7', timeout=0.01)
+    port = Serial('COM7')
 except:
     print('Failed to open port')
 
@@ -27,10 +27,35 @@ def sender():
 
 
 def reciever():
+    s=''
     while True:
-        line = (port.readline())
-        if line:
-            print(line.decode('ascii'))
+        # line = (port.readline())
+        # if line:
+        #     s = line.decode('ascii')
+        #     if s == 'wait\r':
+        #         pass
+        #     elif s.startswith('T:'):
+        #         pass
+        #     elif s.startswith('\rResend:'):
+        #         pass
+        #     else:
+        #         print(s)
+        s+=port.read().decode('ascii')
+        if s.endswith('\r'):
+            if s == 'wait\r':
+                pass
+            # elif s.startswith('T:'):
+            #     pass
+            elif s.startswith('Resend:'):
+                pass
+            elif s in ['\r','ok\r']:
+                pass
+            else:
+                print(s)
+            s=''
+            # if s[0:1]=='T:':
+            #     continue
+            # print(s)
 
 if __name__=='__main__':
     port.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n')    
@@ -45,7 +70,7 @@ if __name__=='__main__':
     port.write(b'N9 M105*46\r\n')
     port.write(b'N10 M111 S6*86\r\n')
     port.write(b'N11 T0*10\r\n')
-    port.write(b'N12 M155 S1*83\r\n')
+    port.write(formatrep('M155 S0',12))
     txthread = Thread(target=sender)
     txthread.start()
     rxthred = Thread(target=reciever)
