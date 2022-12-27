@@ -3,7 +3,7 @@ from time import sleep
 from threading import Thread
 
 try:
-    port = Serial('COM7')
+    port = Serial('COM7', timeout=0.01)
 except:
     print('Failed to open port')
 
@@ -20,13 +20,17 @@ def sender():
     comnum = 1
     while True:
         s = input()
-        port.write(formatrep(s, comnum))
+        bs=formatrep(s, comnum)
+        port.write(bs)
+        print(bs)
         comnum += 1
 
 
 def reciever():
     while True:
-        print(port.readline())
+        line = (port.readline())
+        if line:
+            print(line.decode('ascii'))
 
 
 txthread = Thread(target=sender)
