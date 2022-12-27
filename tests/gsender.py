@@ -21,7 +21,7 @@ def sender(comnum):
         s = input()
         bs = formatrep(s, comnum)
         port.write(bs)
-        print(bs)
+        # print(bs)
         comnum += 1
 
 
@@ -54,18 +54,6 @@ if __name__ == '__main__':
     ]:
         port.write(formatrep(com, i))
         i += 1
-    # port.write(b'N1 M110*34\r\n')
-    # port.write(b'N2 M115*36\r\n')
-    # port.write(b'N3 M105*36\r\n')
-    # port.write(b'N4 M114*35\r\n')
-    # port.write(b'N5 M111 S6*98\r\n')
-    # port.write(b'N6 T0*60\r\n')
-    # port.write(b'N7 M20*22\r\n')
-    # port.write(b'N8 M80*19\r\n')
-    # port.write(b'N9 M105*46\r\n')
-    # port.write(b'N10 M111 S6*86\r\n')
-    # port.write(b'N11 T0*10\r\n')
-    # port.write(formatrep('M155 S0',12))
     txthread = Thread(target=sender, args=[i])
     txthread.start()
     rxthred = Thread(target=reciever)
