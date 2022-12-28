@@ -1,6 +1,7 @@
 from serial import Serial
 from time import sleep
 from threading import Thread
+import matplotlib.pyplot as plt
 
 try:
     port = Serial('COM7')
@@ -28,7 +29,9 @@ def sender(comnum):
 
 def reciever():
     s = ''
-    log=open('recieve.log','w')
+    log=open('tests/data.log','w')
+    rec= False
+    data = []
     while True:
         try:
             s += port.read().decode('ascii')
@@ -37,10 +40,19 @@ def reciever():
                     pass
                 elif s in ['\r', 'ok\r']:
                     pass
+                elif s == 'Data start\r':
+                    rec = True
+                    log=open('tests/data.log','w')
+                elif s == 'Data end\r':
+                    log.close()
+                    rec = False
+                elif rec:
+                    # data.append(s.strip())
+                    log.write(s)
                 else:
                     print(s)
-                    log.write(s)
-                    log.flush()
+                    # log.write(s)
+                    # log.flush()
                 s = ''
         except:
             pass
