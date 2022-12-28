@@ -19,25 +19,31 @@ def formatrep(string: str, N: int = 0) -> bytes:
 def sender(comnum):
     while True:
         s = input()
-        bs = formatrep(s, comnum)
-        port.write(bs)
-        # print(bs)
-        comnum += 1
+        for ss in s.split(';'):
+            bs = formatrep(ss, comnum)
+            port.write(bs)
+            # print(bs)
+            comnum += 1
 
 
 def reciever():
     s = ''
+    log=open('recieve.log','w')
     while True:
-        s += port.read().decode('ascii')
-        if s.endswith('\r'):
-            if s == 'wait\r':
-                pass
-            elif s in ['\r', 'ok\r']:
-                pass
-            else:
-                print(s)
-            s = ''
-
+        try:
+            s += port.read().decode('ascii')
+            if s.endswith('\r'):
+                if s == 'wait\r':
+                    pass
+                elif s in ['\r', 'ok\r']:
+                    pass
+                else:
+                    print(s)
+                    log.write(s)
+                    log.flush()
+                s = ''
+        except:
+            pass
 
 if __name__ == '__main__':
     port.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n')
