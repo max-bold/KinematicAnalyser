@@ -46,7 +46,6 @@ def reciever():
                     print('catched '+s)
                     rec = True
                     log=open('tests/data.log','w+')
-                    # print(type(log))
                 elif s == 'Data end\r':
                     print('catched '+s)
                     plotdata(log)
@@ -56,8 +55,6 @@ def reciever():
                     log.write(s)
                 else:
                     print(s)
-                    # log.write(s)
-                    # log.flush()
                 s = ''
         except Exception as ex:
             print_exc()
