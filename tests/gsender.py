@@ -3,6 +3,7 @@ from time import sleep
 from threading import Thread
 import matplotlib.pyplot as plt
 from analyser import plotdata
+from traceback import print_exc
 
 try:
     port = Serial('COM7')
@@ -42,9 +43,12 @@ def reciever():
                 elif s in ['\r', 'ok\r']:
                     pass
                 elif s == 'Data start\r':
+                    print('catched '+s)
                     rec = True
-                    log=open('tests/data.log','w')
+                    log=open('tests/data.log','w+')
+                    # print(type(log))
                 elif s == 'Data end\r':
+                    print('catched '+s)
                     plotdata(log)
                     log.close()
                     rec = False
@@ -55,8 +59,8 @@ def reciever():
                     # log.write(s)
                     # log.flush()
                 s = ''
-        except:
-            pass
+        except Exception as ex:
+            print_exc()
 
 if __name__ == '__main__':
     port.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n')
