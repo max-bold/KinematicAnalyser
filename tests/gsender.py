@@ -2,6 +2,7 @@ from serial import Serial
 from time import sleep
 from threading import Thread
 import matplotlib.pyplot as plt
+from analyser import plotdata
 
 try:
     port = Serial('COM7')
@@ -44,10 +45,10 @@ def reciever():
                     rec = True
                     log=open('tests/data.log','w')
                 elif s == 'Data end\r':
+                    plotdata(log)
                     log.close()
                     rec = False
                 elif rec:
-                    # data.append(s.strip())
                     log.write(s)
                 else:
                     print(s)
