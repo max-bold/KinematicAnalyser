@@ -64,7 +64,7 @@ def plotdata(file: TextIOWrapper):
     axs[0].plot(tx, x)
     axs[3].plot(tx, dxy)
     tv, vy = calcder(ty, y, 1/1000)
-    averam=3
+    averam=5
     vy = sumaver(vy, averam)
     ta, ay = calcder(tv, vy)
     ay = sumaver(ay, averam)
