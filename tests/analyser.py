@@ -131,36 +131,7 @@ def getdelay(x: np.ndarray, y: np.ndarray, maxdel: float = 20, steps: int = 100,
 
 if __name__ == '__main__':
     with open('tests/datatest.log', 'r') as file:
-        # plotdata(file)
         x, y = readdata(file)
-        # spl = cspline1d(y)
-        # ty = np.arange(4.6, len(x)+4.6, 1)
-        # sy = cspline1d_eval(spl, ty)
-        # # graph = plt.plot(y)[0]
-        # # plt.plot(x)
-        # # plt.show()
-        # spl2 = CubicSpline(range(len(y)), y)
-        # deltas = []
-        # delays = np.linspace(0, 20, 100)
-        # for delay in delays:
-        #     # print(delay)
-        #     times = np.linspace(delay, len(y)+delay, len(y))
-        #     new_ys = spl2(times)
-        #     delta = 0
-        #     for ii in range(len(y)):
-        #         cdelta = abs(x[ii]-new_ys[ii])
-        #         if cdelta < 10:
-        #             delta += cdelta
-        #     deltas.append(delta)
-        #     # graph.set_ydata(new_ys)
-        #     # plt.draw()
-        #     # plt.pause(0.2)
-        # sdels = splrep(delays, deltas, w=np.full(100, 1/10))
-        # ll = BSpline(*sdels)(delays)
-        # print(delays[np.argmin(ll)])
-        # plt.plot(delays, ll)
-        # plt.grid()
-        # plt.show()
         delay = getdelay(x, y, maxdelta=100)
         ty = np.linspace(delay, len(y)+delay, len(y))
         spl = CubicSpline(range(len(y)), y)
@@ -169,6 +140,5 @@ if __name__ == '__main__':
         for i in range(len(y)):
             dif.append(x[i]-newy[i])
         plt.plot(dif)
-        # plt.plot(spl(ty))
         plt.grid()
         plt.show()
