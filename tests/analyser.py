@@ -2,6 +2,9 @@ import matplotlib.pyplot as plt
 from io import TextIOWrapper
 from traceback import format_exc
 from typing import Tuple
+from scipy.signal import cspline1d, cspline1d_eval
+import numpy as np
+from scipy.interpolate import CubicSpline, splrep, BSpline
 
 
 def calcder(t: list[float], x: list[float], mult: float = 1) -> Tuple[list[float], list[float]]:
@@ -64,7 +67,7 @@ def plotdata(file: TextIOWrapper):
     axs[0].plot(tx, x)
     axs[3].plot(tx, dxy)
     tv, vy = calcder(ty, y, 1/1000)
-    averam=5
+    averam = 5
     vy = sumaver(vy, averam)
     ta, ay = calcder(tv, vy)
     ay = sumaver(ay, averam)
@@ -87,6 +90,74 @@ def plotdata(file: TextIOWrapper):
     plt.show()
 
 
+def readdata(file: TextIOWrapper) -> Tuple[list[float], list[float]]:
+    lines = file.readlines()
+    x = np.empty(len(lines), float)
+    y = np.empty(len(lines), float)
+    i = 0
+    for line in lines:
+        data = line.strip().split('\t')
+        try:
+            if not i:
+                x0 = float(data[0])
+                y0 = float(data[1])
+            x[i] = ((float(data[0])-x0)/100)  # current step position
+            # x[i]=cx
+            y[i] = -(float(data[1])-y0)/1000000  # current reader position
+            # y.append(cy)
+            i += 1
+        except:
+            print(f'Failed to read data from line {i}: {data}\n{format_exc()}')
+    return x, y
+
+
+def getdelay(x: np.ndarray, y: np.ndarray, maxdel: float = 20, steps: int = 100, maxdelta: float = 10) -> float:
+    spl = CubicSpline(range(len(y)), y)
+    deltas = []
+    delays = np.linspace(0, maxdel, steps)
+    for delay in delays:
+        times = np.linspace(delay, len(y)+delay, len(y))
+        new_ys = spl(times)
+        delta = 0
+        for ii in range(len(y)):
+            cdelta = abs(x[ii]-new_ys[ii])
+            if cdelta < maxdelta:
+                delta += cdelta
+        deltas.append(delta)
+    sdels = splrep(delays, deltas, w=np.full(100, 1/10))
+    ll = BSpline(*sdels)(delays)
+    return delays[np.argmin(ll)]
+
+
 if __name__ == '__main__':
     with open('tests/datatest.log', 'r') as file:
-        plotdata(file)
+        # plotdata(file)
+        x, y = readdata(file)
+        spl = cspline1d(y)
+        ty = np.arange(4.6, len(x)+4.6, 1)
+        sy = cspline1d_eval(spl, ty)
+        # graph = plt.plot(y)[0]
+        # plt.plot(x)
+        # plt.show()
+        spl2 = CubicSpline(range(len(y)), y)
+        deltas = []
+        delays = np.linspace(0, 20, 100)
+        for delay in delays:
+            # print(delay)
+            times = np.linspace(delay, len(y)+delay, len(y))
+            new_ys = spl2(times)
+            delta = 0
+            for ii in range(len(y)):
+                cdelta = abs(x[ii]-new_ys[ii])
+                if cdelta < 10:
+                    delta += cdelta
+            deltas.append(delta)
+            # graph.set_ydata(new_ys)
+            # plt.draw()
+            # plt.pause(0.2)
+        sdels = splrep(delays, deltas, w=np.full(100, 1/10))
+        ll = BSpline(*sdels)(delays)
+        print(delays[np.argmin(ll)])
+        plt.plot(delays, ll)
+        plt.grid()
+        plt.show()
