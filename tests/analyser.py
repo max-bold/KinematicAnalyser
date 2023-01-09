@@ -102,9 +102,7 @@ def readdata(file: TextIOWrapper) -> Tuple[list[float], list[float]]:
                 x0 = float(data[0])
                 y0 = float(data[1])
             x[i] = ((float(data[0])-x0)/100)  # current step position
-            # x[i]=cx
             y[i] = -(float(data[1])-y0)/1000000  # current reader position
-            # y.append(cy)
             i += 1
         except:
             print(f'Failed to read data from line {i}: {data}\n{format_exc()}')
@@ -135,10 +133,24 @@ if __name__ == '__main__':
         delay = getdelay(x, y, maxdelta=100)
         ty = np.linspace(delay, len(y)+delay, len(y))
         spl = CubicSpline(range(len(y)), y)
+        xspl = CubicSpline(range(len(x)), x)
         dif = []
         newy = spl(ty)
         for i in range(len(y)):
             dif.append(x[i]-newy[i])
-        plt.plot(dif)
-        plt.grid()
+        fig, axs = plt.subplots(3, sharex=True)
+        # acc = splrep(range(len(newy)), np.multiply(
+        #     spl(ty, 2), 1000), np.full(len(newy), 1/1))
+        axs[0].plot(dif)
+        axs[1].plot(spl(ty, 1))
+        axs[1].plot(xspl(range(len(x)), 1))
+        axs[2].plot(np.multiply(spl(ty, 2), 1000))
+        axs[2].plot(np.multiply(xspl(range(len(x)), 2), 1000))
+        axs[0].set(ylim=(-1, 1), ylabel='mm')
+        axs[1].set(ylim=(-1, 1), ylabel='m/s')
+        axs[2].set(ylim=(-10, 10), ylabel='m/s2')
+        for ax in axs:
+            ax.grid(True)
+        # plt.plot(dif)
+        # plt.grid()
         plt.show()
