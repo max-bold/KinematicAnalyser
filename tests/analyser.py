@@ -4,7 +4,7 @@ from traceback import format_exc
 from typing import Tuple
 from scipy.signal import cspline1d, cspline1d_eval
 import numpy as np
-from scipy.interpolate import CubicSpline, splrep, BSpline
+from scipy.interpolate import CubicSpline, splrep, BSpline, make_lsq_spline
 
 
 def calcder(t: list[float], x: list[float], mult: float = 1) -> Tuple[list[float], list[float]]:
@@ -128,29 +128,67 @@ def getdelay(x: np.ndarray, y: np.ndarray, maxdel: float = 20, steps: int = 100,
 
 
 if __name__ == '__main__':
-    with open('tests/datatest.log', 'r') as file:
-        x, y = readdata(file)
-        delay = getdelay(x, y, maxdelta=100)
-        ty = np.linspace(delay, len(y)+delay, len(y))
-        spl = CubicSpline(range(len(y)), y)
-        xspl = CubicSpline(range(len(x)), x)
-        dif = []
-        newy = spl(ty)
-        for i in range(len(y)):
-            dif.append(x[i]-newy[i])
-        fig, axs = plt.subplots(3, sharex=True)
-        # acc = splrep(range(len(newy)), np.multiply(
-        #     spl(ty, 2), 1000), np.full(len(newy), 1/1))
-        axs[0].plot(dif)
-        axs[1].plot(spl(ty, 1))
-        axs[1].plot(xspl(range(len(x)), 1))
-        axs[2].plot(np.multiply(spl(ty, 2), 1000))
-        axs[2].plot(np.multiply(xspl(range(len(x)), 2), 1000))
-        axs[0].set(ylim=(-1, 1), ylabel='mm')
-        axs[1].set(ylim=(-1, 1), ylabel='m/s')
-        axs[2].set(ylim=(-10, 10), ylabel='m/s2')
-        for ax in axs:
-            ax.grid(True)
+    with open(r'F:\CODE\KinematicAnalyser\tests\data.log', 'r') as file:
+        y1, ry2 = readdata(file)
+        x1 = range(len(y1))
+        delay = getdelay(y1, ry2, maxdelta=100)
+        x2 = np.linspace(delay, len(ry2)+delay, len(ry2))
+        # spl = CubicSpline(x1, y2)
+        # # xspl = CubicSpline(x1, y1)
+        # dif = []
+        # dy2 = spl(x2)
+        # for i in x1:
+        #     dif.append(y1[i]-dy2[i])
+        # fig, axs = plt.subplots(3, sharex=True)
+        # # acc = splrep(range(len(newy)), np.multiply(
+        # #     spl(ty, 2), 1000), np.full(len(newy), 1/1))
+        # axs[0].plot(dif)
+        # axs[1].plot(spl(x2, 1))
+        # axs[1].plot(xspl(x1, 1))
+        # axs[2].plot(np.multiply(spl(x2, 2), 1000))
+        # axs[2].plot(np.multiply(xspl(x1, 2), 1000))
+        # axs[0].set(ylim=(-1, 1), ylabel='mm')
+        # axs[1].set(ylim=(-1, 1), ylabel='m/s')
+        # axs[2].set(ylim=(-10, 10), ylabel='m/s2')
+        # for ax in axs:
+        #     ax.grid(True)
         # plt.plot(dif)
         # plt.grid()
+        # plt.show()
+        w = np.full(len(x1), 500)
+        splrep1 = splrep(x1, y1, w)
+        spl1 = BSpline(*splrep1)
+        dy1 = spl1(x1, 1)
+        dsplrep1 = splrep(x1, dy1, w)
+        dspl1 = BSpline(*dsplrep1)
+        ddy1 = dspl1(x1, 1)
+        splrep2 = splrep(x1, ry2, w)
+        spl2 = BSpline(*splrep2)
+        y2 = spl2(x2)
+        dy2 = spl2(x2, 1)
+        dsplrep2 = splrep(x1, dy2, w)
+        dspl2 = BSpline(*dsplrep2)
+        ddy2 = dspl2(x1, 1)
+        dif = np.abs(np.subtract(y1, y2))
+        fig, axs = plt.subplots(4, sharex=True)
+        axs[0].plot(dif)
+        axs[1].plot(y1)
+        axs[1].plot(y2)
+        # axs[1].plot(ry2,'ro')
+        axs[2].plot(dy1)
+        axs[2].plot(dy2)
+        axs[3].plot(np.multiply(ddy1, 1000))
+        axs[3].plot(np.multiply(ddy2, 1000))
+        axs[0].set(ylim=(0, 1), ylabel='mm')
+        axs[1].set(ylim=(-10, 30), ylabel='mm')
+        axs[2].set(ylim=(-1, 1), ylabel='m/s')
+        axs[3].set(ylim=(-10, 10), ylabel='m/s2')
+        for ax in axs:
+            ax.grid(True)
+        plt.subplots_adjust(top=0.979,
+                bottom=0.039,
+                left=0.041,
+                right=0.992,
+                hspace=0.059,
+                wspace=0.2)
         plt.show()
