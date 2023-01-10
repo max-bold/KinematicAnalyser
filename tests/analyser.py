@@ -178,7 +178,6 @@ def filtedif(data: np.ndarray, maxdif: float = 10) -> np.ndarray:
 def wsmooth(data: np.ndarray, window: int = 3) -> np.ndarray:
     res = np.full(data.size, np.nan)
     w2 = int((window-1)/2)
-    log = open('tests/smooth.log', 'w')
     for i in range(data.size):
         if not np.isnan(data[i]):
             sum = 0
@@ -187,10 +186,7 @@ def wsmooth(data: np.ndarray, window: int = 3) -> np.ndarray:
                 if ii > 0 and ii < data.size-1 and not np.isnan(data[ii]):
                     sum += data[ii]
                     n += 1
-            # if n:
             res[i] = sum/n
-            log.write(f'{i}, {n}\n')
-    log.close()
     return res
 
 
