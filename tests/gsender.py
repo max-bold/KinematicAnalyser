@@ -1,7 +1,5 @@
 from serial import Serial
-from time import sleep
 from threading import Thread
-import matplotlib.pyplot as plt
 from analyser import plotdata2
 from traceback import print_exc
 
