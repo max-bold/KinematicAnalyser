@@ -2,7 +2,7 @@ from serial import Serial
 from time import sleep
 from threading import Thread
 import matplotlib.pyplot as plt
-from analyser import plotdata
+from analyser import plotdata2
 from traceback import print_exc
 
 try:
@@ -48,7 +48,7 @@ def reciever():
                     log=open('tests/data.log','w+')
                 elif s == 'Data end\r':
                     print('catched '+s)
-                    plotdata(log)
+                    plotdata2(log)
                     log.close()
                     rec = False
                 elif rec:
