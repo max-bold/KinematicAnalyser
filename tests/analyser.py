@@ -98,10 +98,6 @@ def plotdata3(file: TextIOWrapper):
 
     plt.show()
 
-def plotdata():
-    '''
-    '''
-
 
 if __name__ == '__main__':
     with open('tests/datatest.log', 'r') as file:
