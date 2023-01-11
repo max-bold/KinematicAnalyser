@@ -3,7 +3,8 @@ from io import TextIOWrapper
 from traceback import format_exc
 from typing import Tuple
 import numpy as np
-from scipy.interpolate import CubicSpline, splrep, BSpline
+from scipy.interpolate import CubicSpline, splrep, BSpline, splev, splder
+from time import sleep
 
 
 def calcder(t: list[float], x: list[float], mult: float = 1) -> Tuple[list[float], list[float]]:
@@ -113,9 +114,13 @@ def plotdata2(file: TextIOWrapper):
                 np.multiply(splmeas(smoothed[:, 0], nu=2), 1/1000),
                 label='measurement')
     axs[0].set(ylim=(-10, 30), ylabel='mm')
+    axs[0].set_title('Position', loc='left', pad=-17, y=1, x=0.005)
     axs[1].set(ylim=(-1, 1), ylabel='m/s')
+    axs[1].set_title('Velocity', loc='left', pad=-17, y=1, x=0.005)
     axs[2].set(ylim=(-10, 10), ylabel='m/s2')
+    axs[2].set_title('Acceleration', loc='left', pad=-17, y=1, x=0.005)
     axs[3].set(ylim=(-2, 2), ylabel='mm')
+    axs[3].set_title('Positioning error', loc='left', pad=-17, y=1, x=0.005)
     for ax in axs:
         ax.label_outer()
         ax.grid(True)
@@ -124,10 +129,53 @@ def plotdata2(file: TextIOWrapper):
                         bottom=0.039,
                         left=0.041,
                         right=0.992,
-                        hspace=0.059,
+                        hspace=0.05,
                         wspace=0.2)
     figManager = plt.get_current_fig_manager()
     figManager.full_screen_toggle()
+    plt.show()
+
+
+def plotdata3(file: TextIOWrapper):
+    data = readdata(file, delay=4, timestep=1/1000)
+    filtered = filtedif(data, maxdif=2)
+    smoothed = splinesmooth(filtered, 0.01)
+    vel = splinesmooth(filtered, 0.01, 1, 1/1000)
+    acc = splinesmooth(vel, 0.01, 1)
+
+    fig, axs = plt.subplots(4, sharex=True)
+
+    axs[0].plot(smoothed[:, 0], smoothed[:, 1], label='command')
+    axs[0].plot(smoothed[:, 0], smoothed[:, 2], label='measurement')
+    axs[3].plot(smoothed[:, 0], smoothed[:, 3])
+    axs[1].plot(smoothed[:, 0], vel[:, 1], label='command')
+    axs[1].plot(smoothed[:, 0], vel[:, 2], label='measurement')
+    axs[2].plot(smoothed[:, 0], acc[:, 1], label='command')
+    axs[2].plot(smoothed[:, 0], acc[:, 2], label='measurement')
+
+    axs[0].set(ylabel='mm')
+    axs[0].set_title('Position', loc='left', pad=-17, y=1, x=0.005)
+    axs[1].set(ylabel='m/s')
+    axs[1].set_title('Velocity', loc='left', pad=-17, y=1, x=0.005)
+    axs[2].set( ylabel='m/s2')
+    axs[2].set_title('Acceleration', loc='left', pad=-17, y=1, x=0.005)
+    axs[3].set(ylabel='mm')
+    axs[3].set_title('Positioning error', loc='left', pad=-17, y=1, x=0.005)
+
+    for ax in axs:
+        # ax.label_outer()
+        ax.grid(True)
+
+    plt.subplots_adjust(top=0.979,
+                        bottom=0.039,
+                        left=0.041,
+                        right=0.992,
+                        hspace=0.05,
+                        wspace=0.2)
+
+    figManager = plt.get_current_fig_manager()
+    figManager.full_screen_toggle()
+
     plt.show()
 
 
@@ -166,27 +214,32 @@ def getdelay(x: np.ndarray, y: np.ndarray, maxdel: float = 20, steps: int = 100,
     return delays[np.argmin(ll)]
 
 
-def filtedif(data: np.ndarray, maxdif: float = 10) -> np.ndarray:
+def filtedif(data: np.ndarray, maxdif: float = 10, both=False) -> np.ndarray:
     res = np.copy(data)
     for row in res:
         if row[3] > maxdif:
+            if both:
+                row[1] = np.nan
             row[2] = np.nan
             row[3] = np.nan
     return res
 
 
-def wsmooth(data: np.ndarray, window: int = 3) -> np.ndarray:
+def wsmooth(data: np.ndarray, window: int = 3, exp: float = 1) -> np.ndarray:
     res = np.full(data.size, np.nan)
     w2 = int((window-1)/2)
     for i in range(data.size):
-        if not np.isnan(data[i]):
-            sum = 0
-            n = 0
-            for ii in range(i-w2, i+w2+1):
-                if ii > 0 and ii < data.size-1 and not np.isnan(data[ii]):
-                    sum += data[ii]
-                    n += 1
+        # if not np.isnan(data[i]):
+        sum = 0
+        n = 0
+        for ii in range(-w2, w2+1):
+            if ii+i > 0 and ii+i < data.size-1 and not np.isnan(data[i+ii]):
+                w = 1/(exp**abs(ii))
+                sum += data[ii+i]*w
+                n += w
+        if n:
             res[i] = sum/n
+            # print(f'sum: {sum}, n:{n}, res: {res[i]}')
     return res
 
 
@@ -203,15 +256,48 @@ def filternan(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     return np.asarray(resx), np.asarray(resy)
 
 
-def smoothdata(data: np.ndarray, window: int = 10):
+def smoothdata(data: np.ndarray, window: int = 9, exp: float = 1):
     res = np.empty(data.shape)
     res[:, 0] = data[:, 0]
-    res[:, 1] = wsmooth(data[:, 1], window)
-    res[:, 2] = wsmooth(data[:, 2], window)
+    res[:, 1] = wsmooth(data[:, 1], window, exp)
+    res[:, 2] = wsmooth(data[:, 2], window, exp)
     res[:, 3] = np.abs(np.subtract(res[:, 1], res[:, 2]))
     return res
 
 
+def splinesmooth(data: np.ndarray, smootness: float, der: int = 0, mult: float = 1) -> np.ndarray:
+    res = np.empty_like(data)
+    res[:, 0] = data[:, 0]
+    for i in range(1, 3):
+        spl = splrep(*filternan(data[:, 0], data[:, i]), s=smootness)
+        res[:, i] = np.multiply(splev(data[:, 0], spl, der=der), mult)
+    res[:, 3] = np.abs(np.subtract(res[:, 1], res[:, 2]))
+    return res
+
+
+def datader(data: np.ndarray, der: int = 1, mult: float = 1) -> np.ndarray:
+    # print(der)
+    res = np.full_like(data, np.nan)
+    res[:, 0] = data[:, 0]
+    for i in range(1, data.shape[0]):
+        for c in range(1, 3):
+            if (not np.isnan(data[i-1, c])) and (not np.isnan(data[i, c])):
+                # print(i, c)
+                # sleep(0.01)
+                res[i, c] = (data[i, c]-data[i-1, c]) / \
+                    (data[i, 0]-data[i-1, 0])*mult
+    res[:, 3] = np.abs(np.subtract(res[:, 1], res[:, 2]))
+    # print(res)
+    if der > 1:
+        # print('subcall')
+        return datader(res, der-1)
+    else:
+        # print('return')
+        return res
+
+
 if __name__ == '__main__':
     with open('tests/datatest.log', 'r') as file:
-        plotdata2(file)
+        plotdata3(file)
+        # rawdata = readdata(file, timestep=1/1000, delay=4)
+        # filtered = filtedif(rawdata, maxdif=1)

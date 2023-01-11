@@ -1,6 +1,6 @@
 from serial import Serial
 from threading import Thread
-from analyser import plotdata2
+from analyser import plotdata3
 from traceback import print_exc
 
 try:
@@ -46,7 +46,7 @@ def reciever():
                     log=open('tests/data.log','w+')
                 elif s == 'Data end\r':
                     print('catched '+s)
-                    plotdata2(log)
+                    plotdata3(log)
                     log.close()
                     rec = False
                 elif rec:
