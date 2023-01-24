@@ -88,7 +88,7 @@ def plotdata3(file: TextIOWrapper):
 
     plt.subplots_adjust(top=0.979,
                         bottom=0.039,
-                        left=0.041,
+                        left=0.06,
                         right=0.992,
                         hspace=0.05,
                         wspace=0.2)
