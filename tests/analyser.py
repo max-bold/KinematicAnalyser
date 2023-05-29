@@ -10,23 +10,24 @@ def readdata(file: TextIOWrapper, timestep: float = 1/1000, delay: int = 0) -> n
     file.seek(0)
     lines = file.readlines()
     data = np.empty((len(lines)-delay, 4), float)
+    km=10**6
     for i in range(len(lines)-delay):
         command = float(lines[i].strip().split('\t')[0])/100
-        measure = -float(lines[i+delay].strip().split('\t')[1])/10**6
+        measure = -float(lines[i+delay].strip().split('\t')[1])/km
         if not i:
             c0 = command
             m0 = measure
         data[i, 0] = i*timestep
         data[i, 1] = command-c0
         data[i, 2] = measure-m0
-        data[i, 3] = abs((command-c0)-(measure-m0))
+        data[i, 3] = ((command-c0)-(measure-m0))
     return data
 
 
 def filtedif(data: np.ndarray, maxdif: float = 10, both=False) -> np.ndarray:
     res = np.copy(data)
     for row in res:
-        if row[3] > maxdif:
+        if abs(row[3]) > maxdif:
             if both:
                 row[1] = np.nan
             row[2] = np.nan
@@ -53,15 +54,15 @@ def splinesmooth(data: np.ndarray, smootness: float, der: int = 0, mult: float =
     for i in range(1, 3):
         spl = splrep(*filternan(data[:, 0], data[:, i]), s=smootness)
         res[:, i] = np.multiply(splev(data[:, 0], spl, der=der), mult)
-    res[:, 3] = np.abs(np.subtract(res[:, 1], res[:, 2]))
+    res[:, 3] = (np.subtract(res[:, 1], res[:, 2]))
     return res
 
 
 def plotdata3(file: TextIOWrapper):
-    data = readdata(file, delay=4, timestep=1/1000)
-    filtered = filtedif(data, maxdif=2)
-    smoothed = splinesmooth(filtered, 0.01)
-    vel = splinesmooth(filtered, 0.01, 1, 1/1000)
+    data = readdata(file, delay=0, timestep=1/1000)
+    filtered = filtedif(data, maxdif=30)
+    smoothed = splinesmooth(filtered, 0.05)
+    vel = splinesmooth(filtered, 0.05, 1, 1/1000)
     acc = splinesmooth(vel, 0.01, 1)
 
     axs = plt.subplots(4, sharex=True)[1]
@@ -100,5 +101,5 @@ def plotdata3(file: TextIOWrapper):
 
 
 if __name__ == '__main__':
-    with open('tests/datatest.log', 'r') as file:
+    with open('tests/data.log', 'r') as file:
         plotdata3(file)

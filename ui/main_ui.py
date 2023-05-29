@@ -64,7 +64,7 @@ class Ui_MainWindow(object):
     # setupUi
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MainWindow", None))
+        MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"KinevaticAnalyser", None))
         self.actionSave_data.setText(QCoreApplication.translate("MainWindow", u"Save data", None))
         self.actionLoad_data.setText(QCoreApplication.translate("MainWindow", u"Load data", None))
         self.actionPNG.setText(QCoreApplication.translate("MainWindow", u"PNG", None))
