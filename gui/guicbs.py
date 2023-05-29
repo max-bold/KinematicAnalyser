@@ -56,6 +56,7 @@ def portconnect():
     portname = dpg.get_value("comboports")
     resappend(f"Connecting {portname}")
     dpg.configure_item("wportselect", show=False)
+    dpg.configure_item("bdiconnect", show=True)
     back.run(portname)
     speed = dpg.get_value("CRspeed")
     acc = dpg.get_value("CRacc") * 1000
