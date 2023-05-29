@@ -14,8 +14,17 @@ with dpg.window(tag="primarywindow") as mw:
             dpg.add_menu_item(label="Connect")
 
         with dpg.menu(label="Setings"):
-            dpg.add_menu_item(label="Connect", callback=cb.mconnect)
-            dpg.add_menu_item(label="Disconnect", show=False)
+            dpg.add_menu_item(
+                label="Connect",
+                callback=cb.mconnect,
+                tag="bconnect",
+            )
+            dpg.add_menu_item(
+                label="Disconnect",
+                show=False,
+                tag="bdiconnect",
+                callback=cb.portdisconnect,
+            )
             dpg.add_menu_item(
                 label="Select port",
                 callback=lambda: dpg.configure_item("wportselect", show=True),
@@ -61,29 +70,72 @@ with dpg.window(tag="primarywindow") as mw:
 
         with dpg.group(tag="controls"):
             with dpg.group(horizontal=True, horizontal_spacing=5):
-                dpg.add_input_float(width=80, on_enter=True, step=0)
-                dpg.add_input_float(width=80, on_enter=True, step=0)
-                dpg.add_input_float(width=80, on_enter=True, step=0)
+                dpg.add_input_float(
+                    width=80,
+                    on_enter=True,
+                    step=0,
+                    callback=cb.coordcb,
+                    tag="XCOORD",
+                )
+                dpg.add_input_float(
+                    width=80,
+                    on_enter=True,
+                    step=0,
+                    callback=cb.coordcb,
+                    tag="YCOORD",
+                )
+                dpg.add_input_float(
+                    width=60,
+                    on_enter=True,
+                    step=0,
+                    callback=cb.coordcb,
+                    tag="ZCOORD",
+                )
+                dpg.add_button(width=15, label="R", callback=cb.getcoords)
             dpg.add_separator()
             with dpg.group(horizontal=True, horizontal_spacing=5):
                 dpg.add_button(
-                    label="X+", width=80, height=50, callback=cb.movebtn, tag="G0X"
+                    label="X+",
+                    width=80,
+                    height=50,
+                    callback=cb.movebtn,
+                    tag="G0X",
                 )
                 dpg.add_button(
-                    label="Y+", width=80, height=50, callback=cb.movebtn, tag="G0Y"
+                    label="Y+",
+                    width=80,
+                    height=50,
+                    callback=cb.movebtn,
+                    tag="G0Y",
                 )
                 dpg.add_button(
-                    label="Z+", width=80, height=50, callback=cb.movebtn, tag="G0Z"
+                    label="Z+",
+                    width=80,
+                    height=50,
+                    callback=cb.movebtn,
+                    tag="G0Z",
                 )
             with dpg.group(horizontal=True, horizontal_spacing=5):
                 dpg.add_button(
-                    label="X-", width=80, height=50, callback=cb.movebtn, tag="G0X-"
+                    label="X-",
+                    width=80,
+                    height=50,
+                    callback=cb.movebtn,
+                    tag="G0X-",
                 )
                 dpg.add_button(
-                    label="Y-", width=80, height=50, callback=cb.movebtn, tag="G0Y-"
+                    label="Y-",
+                    width=80,
+                    height=50,
+                    callback=cb.movebtn,
+                    tag="G0Y-",
                 )
                 dpg.add_button(
-                    label="Z-", width=80, height=50, callback=cb.movebtn, tag="G0Z-"
+                    label="Z-",
+                    width=80,
+                    height=50,
+                    callback=cb.movebtn,
+                    tag="G0Z-",
                 )
             with dpg.group(horizontal=True, horizontal_spacing=5):
                 dpg.add_button(label="XH", width=80, callback=cb.homebtncb, tag="G28X")
@@ -113,13 +165,21 @@ with dpg.window(tag="primarywindow") as mw:
                 callback=cb.accslidercb,
             )
             dpg.add_separator()
-            dpg.add_input_text(multiline=True, height=300, width=250, tag="cominput", callback=cb.cominputcb)
+            dpg.add_input_text(
+                multiline=True,
+                height=300,
+                width=250,
+                tag="cominput",
+                callback=cb.cominputcb,
+            )
             with dpg.group(horizontal=True, horizontal_spacing=5):
                 dpg.add_button(label="Send", width=195, callback=cb.comsendcb)
-                dpg.add_button(label="X", width=50, callback=lambda:dpg.set_value('cominput',''))
+                dpg.add_button(
+                    label="X", width=50, callback=lambda: dpg.set_value("cominput", "")
+                )
             with dpg.group(horizontal=True):
-                dpg.add_checkbox(label="clear on send", tag='cbcls')
-                dpg.add_checkbox(label="send on CR", tag='sendoncr')
+                dpg.add_checkbox(label="clear on send", tag="cbcls")
+                dpg.add_checkbox(label="send on CR", tag="sendoncr")
 
 with dpg.window(
     label="Cycle run", show=False, tag="cyclewindow", width=300, pos=[30, 40]

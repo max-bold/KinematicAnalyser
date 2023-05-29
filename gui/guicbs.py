@@ -58,6 +58,10 @@ def portconnect():
     # dpg.configure_item('wportconnect', show=False)
 
 
+def portdisconnect():
+    back.stop()
+
+
 def mconnect():
     if dpg.get_value("comboports"):
         portconnect()
@@ -65,9 +69,27 @@ def mconnect():
         dpg.configure_item("wportselect", show=True)
 
 
+def updatecoords(resp: str):
+    coords = []
+    for part in resp.split(" "):
+        coords.append(float(part.split(":")[1]))
+    dpg.set_value("XCOORD", coords[0])
+    dpg.set_value("YCOORD", coords[1])
+    dpg.set_value("ZCOORD", coords[2])
+
+
 def processqueue():
     try:
-        resappend(back.recivequeue.get(block=False))
+        resp: str = back.recivequeue.get(block=False)
+        if resp == "Connected":
+            dpg.configure_item("bconnect", show=False)
+            dpg.configure_item("bdiconnect", show=True)
+        if resp == "Disconnected":
+            dpg.configure_item("bconnect", show=True)
+            dpg.configure_item("bdiconnect", show=False)
+        if resp.startswith("X:"):
+            updatecoords(resp)
+        resappend(resp)
     except queue.Empty:
         pass
 
@@ -114,3 +136,18 @@ def cominputcb(sender, appdata: str):
             com = appdata.split("\n")[-2]
             if com:
                 back.sendqueue.put(com)
+
+
+def coordcb(sender, appdata: str):
+    if sender == "XCOORD":
+        com = f"G0X{float(appdata):.3f}"
+    if sender == "YCOORD":
+        com = f"G0Y{float(appdata):.3f}"
+    if sender == "ZCOORD":
+        com = f"G0Z{float(appdata):.3f}"
+    back.sendqueue.put("G90")
+    back.sendqueue.put(com)
+    back.sendqueue.put("M114")
+
+def getcoords():
+    back.sendqueue.put('M114')
