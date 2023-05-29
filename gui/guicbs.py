@@ -36,7 +36,9 @@ def listports():
             for port in ports:
                 portnames.append(port.name)
             dpg.configure_item(
-                "comboports", items=portnames, default_value=portnames[0]
+                "comboports",
+                items=portnames,
+                default_value=portnames[0],
             )
 
 
@@ -55,6 +57,11 @@ def portconnect():
     resappend(f"Connecting {portname}")
     dpg.configure_item("wportselect", show=False)
     back.run(portname)
+    speed = dpg.get_value("CRspeed")
+    acc = dpg.get_value("CRacc") * 1000
+    back.sendqueue.put(f"G0F{speed*60000:.0f}")
+    back.sendqueue.put(f"M201 X{acc:.0f} Y{acc:.0f} Z{acc:.0f}")
+    back.sendqueue.put(f"M202 X{acc:.0f} Y{acc:.0f} Z{acc:.0f}")
     # dpg.configure_item('wportconnect', show=False)
 
 
@@ -79,19 +86,26 @@ def updatecoords(resp: str):
 
 
 def processqueue():
-    try:
+    if not back.recivequeue.empty():
         resp: str = back.recivequeue.get(block=False)
-        if resp == "Connected":
-            dpg.configure_item("bconnect", show=False)
-            dpg.configure_item("bdiconnect", show=True)
-        if resp == "Disconnected":
-            dpg.configure_item("bconnect", show=True)
-            dpg.configure_item("bdiconnect", show=False)
-        if resp.startswith("X:"):
-            updatecoords(resp)
-        resappend(resp)
-    except queue.Empty:
-        pass
+        print([resp])
+        if resp:
+            if resp == "Connected":
+                dpg.configure_item("bconnect", show=False)
+                dpg.configure_item("bdiconnect", show=True)
+                resappend(resp)
+            elif resp == "Disconnected":
+                dpg.configure_item("bconnect", show=True)
+                dpg.configure_item("bdiconnect", show=False)
+                resappend(resp)
+            elif resp.startswith("X:"):
+                updatecoords(resp)
+            elif resp.endswith("\x00\x00\n"):
+                pass
+            elif resp.startswith(">") and not dpg.get_value("filtercom"):
+                pass
+            else:
+                resappend(resp)
 
 
 def updateplots():
@@ -105,11 +119,6 @@ def movebtn(sender, appdata):
     back.sendqueue.put("M114")
 
 
-def homebtncb(sender):
-    back.sendqueue.put(sender)
-    back.sendqueue.put("M114")
-
-
 def speedslidercb(sender, appdata):
     back.sendqueue.put(f"G0F{appdata*60000:.0f}")
 
@@ -118,6 +127,15 @@ def accslidercb(sender, appdata):
     acc = f"{appdata*1000:.0f}"
     back.sendqueue.put(f"M201 X{acc} Y{acc} Z{acc}")
     back.sendqueue.put(f"M202 X{acc} Y{acc} Z{acc}")
+
+
+def homebtncb(sender):
+    back.sendqueue.put(sender)
+    back.sendqueue.put("M114")
+    speed = dpg.get_value("CRspeed")
+    acc = dpg.get_value("CRacc")
+    speedslidercb(None, speed)
+    accslidercb(None, acc)
 
 
 def comsendcb():
@@ -149,5 +167,35 @@ def coordcb(sender, appdata: str):
     back.sendqueue.put(com)
     back.sendqueue.put("M114")
 
+
 def getcoords():
-    back.sendqueue.put('M114')
+    back.sendqueue.put("M114")
+
+
+def clearsendqueue():
+    while not back.sendqueue.empty():
+        back.sendqueue.get()
+
+
+def cycleruncb():
+    axis = dpg.get_value("CRaxis")
+    dist = dpg.get_value("CRdist")
+    speed = dpg.get_value("CRspeed")
+    acc = dpg.get_value("CRacc")
+    speedslidercb(None, speed)
+    dpg.set_value("slspeed", speed)
+    accslidercb(None, acc)
+    dpg.set_value("slacc", acc)
+    if dpg.get_value("cbrec"):
+        reclen = dpg.get_value("CRreclength")
+        back.sendqueue.put(f"G405{axis}{reclen}")
+    for i in range(dpg.get_value("CRnumber")):
+        back.sendqueue.put(f"G0{axis}{dist}")
+        back.sendqueue.put(f"G0{axis}{-dist}")
+    back.sendqueue.put("M114")
+
+
+def cyclestopcb():
+    clearsendqueue()
+    back.sendqueue.put("M0")
+    back.sendqueue.put("M112")

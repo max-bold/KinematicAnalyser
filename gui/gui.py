@@ -63,7 +63,7 @@ with dpg.window(tag="primarywindow") as mw:
             with dpg.group(horizontal=True, tag="responses"):
                 dpg.add_child_window(width=100, tag="respinput", indent=-5)
                 with dpg.group():
-                    dpg.add_checkbox(label="Commands", default_value=True)
+                    dpg.add_checkbox(label="Commands", default_value=True, tag='filtercom')
                     dpg.add_checkbox(label="GUI", default_value=False)
                     dpg.add_checkbox(label="OK/RESEND", default_value=False)
                     dpg.add_checkbox(label="DATA", default_value=False)
@@ -155,6 +155,7 @@ with dpg.window(tag="primarywindow") as mw:
                 max_value=2,
                 default_value=0.1,
                 callback=cb.speedslidercb,
+                tag='slspeed',
             )
             dpg.add_slider_float(
                 label="A m/s2",
@@ -163,6 +164,7 @@ with dpg.window(tag="primarywindow") as mw:
                 max_value=20,
                 default_value=3,
                 callback=cb.accslidercb,
+                tag='slacc'
             )
             dpg.add_separator()
             dpg.add_input_text(
@@ -184,11 +186,13 @@ with dpg.window(tag="primarywindow") as mw:
 with dpg.window(
     label="Cycle run", show=False, tag="cyclewindow", width=300, pos=[30, 40]
 ):
-    dpg.add_radio_button(["X", "Y", "Z"], horizontal=True)
-    dpg.add_input_float(label="Distance, mm", width=150, default_value=30)
-    dpg.add_input_float(label="Max speed, m/s", width=150, default_value=0.1)
-    dpg.add_input_float(label="Acc, m/s2", width=150, default_value=3)
-    dpg.add_input_int(label="Repitions", width=150, default_value=10)
+    dpg.add_radio_button(["X", "Y", "Z"], horizontal=True, tag="CRaxis", default_value='X')
+    dpg.add_input_float(label="Distance, mm", width=150, default_value=30, tag="CRdist")
+    dpg.add_input_float(
+        label="Max speed, m/s", width=150, default_value=0.1, tag="CRspeed"
+    )
+    dpg.add_input_float(label="Acc, m/s2", width=150, default_value=3, tag="CRacc")
+    dpg.add_input_int(label="Repitions", width=150, default_value=10, tag="CRnumber")
     dpg.add_checkbox(
         label="Run record",
         default_value=True,
@@ -200,17 +204,21 @@ with dpg.window(
         max_value=10000,
         min_value=1,
         default_value=5000,
-        tag="inpreclen",
         max_clamped=True,
         min_clamped=True,
         width=150,
+        tag="CRreclength",
     )
     with dpg.group(horizontal=True):
-        dpg.add_button(label="RUN", width=50)
-        dpg.add_button(label="STOP", width=50)
+        dpg.add_button(label="RUN", width=50, callback=cb.cycleruncb)
+        dpg.add_button(label="STOP", width=50, callback=cb.cyclestopcb)
 
 with dpg.window(
-    label="Macine control", tag="wmachine", pos=[30, 40], show=False, width=350
+    label="Macine control",
+    tag="wmachine",
+    pos=[30, 40],
+    show=False,
+    width=350,
 ):
     with dpg.group(horizontal=True):
         dpg.add_button(label="OPEN")

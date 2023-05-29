@@ -37,6 +37,7 @@ def sender():
             resend = False
         try:
             port.write(formatrep(com, comnum))
+            recivequeue.put(f">{com}")
         except SerialException:
             recivequeue.put("Connection lost")
         except:
@@ -73,9 +74,10 @@ def reciever():
             break
 
 
-txthread:Thread = None
-rxthread:Thread = None
+txthread: Thread = None
+rxthread: Thread = None
 port = Serial()
+
 
 def run(comport: str):
     global port
@@ -97,7 +99,7 @@ def run(comport: str):
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n"
         )
         recivequeue.put("Connected")
-        for com in ["M110", "M115", "M105", "M114", "M111 S6", "T0", "M80", "M155 S0"]:
+        for com in ["M110", "M115", "M105", "M114", "M111 S6", "T2", "M80", "M155 S0"]:
             sendqueue.put(com)
 
 
@@ -107,11 +109,10 @@ def stop():
     global stopthreads
     global port
     stopthreads = True
-    sendqueue.put('quit')
+    sendqueue.put("quit")
     confirmed.release()
     txthread.join()
     rxthread.join()
     stopthreads = False
     port.close()
     recivequeue.put("Disconnected")
-
