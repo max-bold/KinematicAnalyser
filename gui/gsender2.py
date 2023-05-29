@@ -1,6 +1,8 @@
 from serial import Serial, SerialException
 from threading import Thread, Lock
 
+# from queue import Queue
+
 # from analyser import plotdata3
 from traceback import print_exc
 from time import sleep
@@ -28,21 +30,30 @@ def sender():
     global comnum
     global resend
     global stopthreads
-    com = ""
+    lastcom = ""
+
     while True:
         if not resend:
-            com = sendqueue.get()
-            comnum += 1
+            try:
+                com = sendqueue.get(timeout=1)
+                lastcom = com
+                comnum += 1
+            except q.Empty:
+                print("send queue empty")
         else:
-            resend = False
-        try:
-            port.write(formatrep(com, comnum))
-            recivequeue.put(f">{com}")
-        except SerialException:
-            recivequeue.put("Connection lost")
-        except:
-            print_exc()
-        confirmed.acquire()
+            com = lastcom
+        if com:
+            try:
+                port.write(formatrep(com, comnum))
+                recivequeue.put(f">{com}")
+                com=''
+            except SerialException:
+                recivequeue.put("Connection lost")
+            except:
+                print_exc()
+            if not confirmed.acquire(timeout=10):
+                recivequeue.put("No confirmation received")
+        # recivequeue.put('confirmed')
         if stopthreads:
             break
 
@@ -55,17 +66,18 @@ def reciever():
     while True:
         try:
             s += port.read().decode("ascii")
-            if s.endswith("\r") or s.endswith("\n"):
-                # print([s])
-                if s == "ok\r":
-                    confirmed.release()
-                elif s.startswith("Resend"):
-                    comnum = int(s.split(":")[1])
-                    resend = True
-                    confirmed.release()
-                else:
-                    recivequeue.put(s)
-                s = ""
+            if s:
+                if s.endswith("\r") or s.endswith("\n"):
+                    # print([s])
+                    if s == "ok\r":
+                        confirmed.release()
+                    elif s.startswith("Resend"):
+                        comnum = int(s.split(":")[1])
+                        resend = True
+                        confirmed.release()
+                    else:
+                        recivequeue.put(s)
+                    s = ""
         except SerialException:
             recivequeue.put("Connection lost")
         except:
@@ -76,7 +88,7 @@ def reciever():
 
 txthread: Thread = None
 rxthread: Thread = None
-port = Serial()
+port = Serial(timeout=1)
 
 
 def run(comport: str):
@@ -104,13 +116,12 @@ def run(comport: str):
 
 
 def stop():
-    # kill python thread
-    # print("disconnecting")
+    print("disconnecting")
     global stopthreads
     global port
     stopthreads = True
-    sendqueue.put("quit")
-    confirmed.release()
+    sendqueue.queue.clear()
+    sendqueue.put('M0')
     txthread.join()
     rxthread.join()
     stopthreads = False
