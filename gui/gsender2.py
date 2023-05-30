@@ -19,6 +19,15 @@ stopthreads = False
 
 
 def formatrep(string: str, N: int = 0) -> bytes:
+    """Formats input string to Reptier printer style, adds command number and checksum
+
+    Args:
+        string (str): input string (command)
+        N (int, optional): comand number. Defaults to 0.
+
+    Returns:
+        bytes: byte seq to write into port
+    """
     bs = f"N{N} {string}".encode("ascii")
     cs = 0
     for b in bs:
@@ -27,6 +36,11 @@ def formatrep(string: str, N: int = 0) -> bytes:
 
 
 def sender():
+    """Sender thread. Takes a command form sendqueue, formats it and sends to printer, waiting for confirmation.
+    If no confirmation returned within 10 seconds, write a warning to recivequeue.
+    Every time it sendы a command (if no resend==True) it rises comnum by one, for printer duplicate filtering
+    """
+
     global comnum
     global resend
     global stopthreads
@@ -47,7 +61,7 @@ def sender():
             try:
                 port.write(formatrep(com, comnum))
                 recivequeue.put(f">{com}")
-                com=''
+                com = ""
             except SerialException:
                 recivequeue.put("Connection lost")
             except:
@@ -60,6 +74,10 @@ def sender():
 
 
 def reciever():
+    """Reciever thread. Reads from port and puts recieved data into recievequeue.
+    If data is a confirmation, it rises confirmed by one, for printer duplicate filtering
+    """
+
     global resend
     global comnum
     global stopthreads
@@ -76,7 +94,7 @@ def reciever():
                         comnum = int(s.split(":")[1])
                         resend = True
                         confirmed.release()
-                    elif s.startswith('X:'):
+                    elif s.startswith("X:"):
                         if confirmed.locked():
                             confirmed.release()
                         recivequeue.put(s)
@@ -97,6 +115,11 @@ port = Serial(timeout=1)
 
 
 def run(comport: str):
+    """Connects to port and starts threads
+
+    Args:
+        comport (str): Port name to connect. Ex. 'COM5' in windows.
+    """
     global port
     global txthread
     global rxthread
@@ -121,12 +144,14 @@ def run(comport: str):
 
 
 def stop():
+    """Stops threads, clears sendqueue and closes port"""
+
     print("disconnecting")
     global stopthreads
     global port
     stopthreads = True
     sendqueue.queue.clear()
-    sendqueue.put('M0')
+    sendqueue.put("M0")
     txthread.join()
     rxthread.join()
     stopthreads = False
