@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable, Mapping
 from threading import Thread, Lock
-from time import sleep
+from time import sleep, time
 from typing import Any
 from serial import Serial, SerialException
 from queue import Queue, Empty
@@ -82,6 +82,7 @@ class Printer(object):
                         com = self.queue.get(timeout=1)
                         if com:
                             lastcom = com
+                            self.comnum += 1
                     except Empty:
                         com = ""
                 else:
@@ -90,9 +91,8 @@ class Printer(object):
                     try:
                         fcom = self.formatrep(com, self.comnum)
                         self.port.write(fcom)
+                        self.onsend(self.comnum, fcom)
                         com = ""
-                        self.onsend(self.comnum)
-                        self.comnum += 1
                     except SerialException:
                         self.onerror("Connection lost")
                     if not self.confirmed.acquire(timeout=10):
@@ -110,7 +110,7 @@ class Printer(object):
 
         def confirm(self, comnum=None):
             # print(f"conf for {comnum} recieved, current {self.comnum}")
-            if not comnum or comnum == self.comnum - 1:
+            if not comnum or comnum == self.comnum:
                 if self.confirmed.locked():
                     self.confirmed.release()
 
@@ -134,7 +134,6 @@ class Printer(object):
                     s = self.port.read_until(b"\r").decode("ascii")
                     # print(f"<<<{[s]}")
                     if s == f"ok {self.comnum}\r":
-                        # print("confirmed")
                         self.onconfirm(int(s.split(" ")[1]))
                     elif s == f"ok\r":
                         self.onconfirm()
@@ -152,8 +151,7 @@ class Printer(object):
         def kill(self):
             self.stop = True
 
-        def sended(self, comnum: int):
-            # print(f"sended {comnum}")
+        def sended(self, comnum: int, command):
             self.comnum = comnum
 
     def __init__(self) -> None:
@@ -171,7 +169,7 @@ class Printer(object):
         try:
             self.port = Serial(portname, timeout=10)
         except SerialException:
-            self.onerror("Error: Failed to open port")
+            self.onerror("Failed to open port")
         else:
             self.port.write(startsring)
             resp = self.port.read_until(b"\n")
@@ -194,17 +192,25 @@ class Printer(object):
                 self.onconnect("Connected")
 
     def disconnect(self) -> bool:
-        self.sender.kill()
-        self.reciever.kill()
-        self.sender.join()
-        self.reciever.join()
+        ctime = time()
+        if self.sender and self.sender.is_alive():
+            self.sender.kill()
+            self.sender.join()
+            ctime=time()
+        if self.reciever and self.reciever.is_alive():
+            self.reciever.kill()
+            self.port.cancel_read()
+            self.reciever.join()
+        self.port.close()
         self.ondisconnect("Disconnected")
 
     def write(self, command: str) -> int:
-        if command:
+        if command and self.sender:
             self.sender.queue.put(command)
-        else:
+        elif not command:
             self.onerror("Command must be not empty")
+        elif not self.sender:
+            self.onerror("Sender is not runing")
 
     def clear(self) -> None:
         self.sender.clear()
@@ -213,15 +219,15 @@ class Printer(object):
 class Responder(Thread):
     def __init__(self, portname: str) -> None:
         self.port = Serial(portname, timeout=5)
-        self.stop = False
+        self._stop = False
         super().__init__()
 
     def run(self) -> None:
-        while not self.stop:
+        while not self._stop:
             raw = self.port.readline()
             if raw:
                 line = raw.decode("ASCII")
-                # print(f">>>{line}")
+                # print(f">>> {line}")
                 num = line[1 : line.find(" ")]
                 com = line[line.find(" ") + 1 : line.find("*")]
                 chsum = line[line.find("*") + 1 :]
@@ -233,19 +239,27 @@ class Responder(Thread):
                     self.port.write(f"ok {num}\r".encode("ascii"))
             else:
                 self.port.write(b"wait\r")
-        self.stop = False
+        self._stop = False
+
+    def stop(self) -> None:
+        self._stop = True
+        self.port.cancel_read()
 
 
 if __name__ == "__main__":
     p = Printer()
     r = Responder("COM9")
-    p.onrecieve = print
+    p.onrecieve = lambda resp: print(f'<<< {[resp]}')
     p.onconnect = print
     p.ondisconnect = print
     p.onerror = print
+
     r.start()
     p.connect("COM8")
+    p.sender.onsend += lambda comnum, com: print(f'>>> {[com]}')
+
     p.write("M105")
     p.write("M114")
-    sleep(20)
+    sleep(5)
     p.disconnect()
+    r.stop()
