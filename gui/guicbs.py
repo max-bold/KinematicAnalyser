@@ -79,7 +79,7 @@ def mconnect():
 
 def updatecoords(resp: str):
     coords = []
-    resp = resp.split('\r')[0]
+    resp = resp.split("\r")[0]
     for part in resp.split(" "):
         coords.append(float(part.split(":")[1]))
     dpg.set_value("XCOORD", coords[0])
@@ -90,7 +90,7 @@ def updatecoords(resp: str):
 def processqueue():
     if not back.recivequeue.empty():
         resp: str = back.recivequeue.get(block=False)
-        if not resp == 'wait\r':
+        if not resp == "wait\r":
             print([resp])
         if resp:
             if resp == "Connected":
@@ -107,9 +107,9 @@ def processqueue():
                 pass
             elif resp.startswith(">") and not dpg.get_value("filtercom"):
                 pass
-            elif resp=='wait\r':
+            elif resp == "wait\r":
                 pass
-            elif resp.startswith('GUI') and not dpg.get_value("filtergui"):
+            elif resp.startswith("GUI") and not dpg.get_value("filtergui"):
                 pass
             else:
                 resappend(resp)
@@ -156,11 +156,14 @@ def comsendcb():
 
 
 def cominputcb(sender, appdata: str):
+    print([appdata])
     if dpg.get_value("sendoncr"):
-        if appdata.endswith("\n"):
-            com = appdata.split("\n")[-2]
+        # if appdata.endswith("\n"):
+        for com in appdata.split("\n"):
             if com:
                 back.sendqueue.put(com)
+        if dpg.get_value("cbcls"):
+            dpg.set_value("cominput", "")
 
 
 def coordcb(sender, appdata: str):
@@ -193,10 +196,10 @@ def cycleruncb():
     dpg.set_value("slspeed", speed)
     accslidercb(None, acc)
     dpg.set_value("slacc", acc)
-    back.sendqueue.put('G91')
+    back.sendqueue.put("G91")
     if dpg.get_value("cbrec"):
         reclen = dpg.get_value("CRreclength")
-        
+
         back.sendqueue.put(f"G405{axis}{reclen}")
     for i in range(dpg.get_value("CRnumber")):
         back.sendqueue.put(f"G0{axis}{dist}")

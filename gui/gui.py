@@ -173,6 +173,7 @@ with dpg.window(tag="primarywindow") as mw:
                 width=250,
                 tag="cominput",
                 callback=cb.cominputcb,
+                on_enter=True,
             )
             with dpg.group(horizontal=True, horizontal_spacing=5):
                 dpg.add_button(label="Send", width=195, callback=cb.comsendcb)
