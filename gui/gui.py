@@ -1,9 +1,8 @@
 import dearpygui.dearpygui as dpg
 import guicbs as cb
-import serial.tools.list_ports as serlist
 
 dpg.create_context()
-dpg.create_viewport(title="Custom Title", width=600, height=650)
+dpg.create_viewport(title="KinematicAnalyser", width=600, height=650)
 
 with dpg.item_handler_registry(tag="window_handler"):
     dpg.add_item_resize_handler(callback=cb.windowresize)
@@ -40,6 +39,8 @@ with dpg.window(tag="primarywindow") as mw:
                 label="Machine control",
                 callback=lambda: dpg.configure_item("wmachine", show=True),
             )
+            dpg.add_menu_item(label="Port monitor", callback=cb.pmonitorcb)
+            # dpg.add_menu_item(label="Printer emulator", callback=cb.pemulatorcb)
 
     with dpg.group(horizontal=True):
         with dpg.group(pos=[8, 25]):
@@ -63,9 +64,11 @@ with dpg.window(tag="primarywindow") as mw:
             with dpg.group(horizontal=True, tag="responses"):
                 dpg.add_child_window(width=100, tag="respinput", indent=-5)
                 with dpg.group():
-                    dpg.add_checkbox(label="Commands", default_value=True, tag='filtercom')
-                    dpg.add_checkbox(label="GUI", default_value=False, tag='filtergui')
-                    dpg.add_checkbox(label="OK/RESEND", default_value=False)
+                    dpg.add_checkbox(
+                        label="Commands", default_value=True, tag="filtercom"
+                    )
+                    dpg.add_checkbox(label="GUI", default_value=False, tag="filtergui")
+                    dpg.add_checkbox(label="OK/RESEND", default_value=False, tag='filterok')
                     dpg.add_checkbox(label="DATA", default_value=False)
 
         with dpg.group(tag="controls"):
@@ -155,7 +158,7 @@ with dpg.window(tag="primarywindow") as mw:
                 max_value=2,
                 default_value=0.1,
                 callback=cb.speedslidercb,
-                tag='slspeed',
+                tag="slspeed",
             )
             dpg.add_slider_float(
                 label="A m/s2",
@@ -164,7 +167,7 @@ with dpg.window(tag="primarywindow") as mw:
                 max_value=20,
                 default_value=3,
                 callback=cb.accslidercb,
-                tag='slacc'
+                tag="slacc",
             )
             dpg.add_separator()
             dpg.add_input_text(
@@ -187,7 +190,9 @@ with dpg.window(tag="primarywindow") as mw:
 with dpg.window(
     label="Cycle run", show=False, tag="cyclewindow", width=300, pos=[30, 40]
 ):
-    dpg.add_radio_button(["X", "Y", "Z"], horizontal=True, tag="CRaxis", default_value='X')
+    dpg.add_radio_button(
+        ["X", "Y", "Z"], horizontal=True, tag="CRaxis", default_value="X"
+    )
     dpg.add_input_float(label="Distance, mm", width=150, default_value=30, tag="CRdist")
     dpg.add_input_float(
         label="Max speed, m/s", width=150, default_value=0.1, tag="CRspeed"
@@ -260,6 +265,39 @@ with dpg.window(
             callback=lambda: dpg.configure_item("wportselect", show=False),
         )
 
+with dpg.window(
+    label="Port monitor",
+    show=False,
+    pos=[30, 40],
+    width = 370,
+    height=260,
+    tag="pmonitor",
+    on_close=cb.pmclosecb,
+):
+    # dpg.add_input_text(tag="pmtext", multiline=True, enabled=False)
+    dpg.add_child_window(tag='pmtext')
+    dpg.add_button(label='Clear',callback=cb.pmclear)
+    # with dpg.group(horizontal=True):
+    #     dpg.add_button(label="Connect", callback=cb.pmconnectcb, tag="pmconnectbtn")
+    #     dpg.add_button(label="Close", callback=cb.pmclosecb)
+
+with dpg.item_handler_registry(tag="pmhandler"):
+    dpg.add_item_resize_handler(callback=cb.pmresizecb)
+
+dpg.bind_item_handler_registry("pmonitor", "pmhandler")
+
+# with dpg.window(
+#     label="Priner emulator",
+#     tag="pewindow",
+#     width=300,
+#     pos=[30, 40],
+#     show=False,
+# ):
+#     dpg.add_combo([], tag="peport")
+#     with dpg.group(horizontal=True):
+#         dpg.add_button(label="Start", callback=cb.pestart)
+#         dpg.add_button(label="Stop", callback=cb.pestop)
+
 with dpg.item_handler_registry(tag="wport handler"):
     dpg.add_item_visible_handler(callback=cb.listports)
 
@@ -268,9 +306,9 @@ dpg.bind_item_handler_registry("wportselect", "wport handler")
 dpg.set_primary_window("primarywindow", True)
 dpg.setup_dearpygui()
 dpg.show_viewport()
-# dpg.start_dearpygui()
-while dpg.is_dearpygui_running():
-    cb.processqueue()
-    cb.updateplots()
-    dpg.render_dearpygui_frame()
+dpg.start_dearpygui()
+# while dpg.is_dearpygui_running():
+#     cb.processqueue()
+#     cb.updateplots()
+#     dpg.render_dearpygui_frame()
 dpg.destroy_context()

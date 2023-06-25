@@ -1,13 +1,13 @@
 import dearpygui.dearpygui as dpg
 from serial.tools import list_ports
-import gsender2 as back
-import queue
+from printer import Printer
+
+p = Printer()
 
 
-def windowresize(sender, appdata):
+def windowresize():
     pwwidth = dpg.get_item_width("primarywindow")
     pwheight = dpg.get_item_height("primarywindow")
-    # if not dpg.get_y_scroll_max("primarywindow"):
     x_off = pwwidth - 258.0
     dpg.set_item_pos("controls", [x_off, 25])
     dpg.set_item_height("cominput", pwheight - 315)
@@ -22,24 +22,12 @@ def plotcb(sender, appdata):
     print(sender, appdata)
 
 
-state = False
-
-
 def listports():
-    global state
-    wshow = dpg.get_item_configuration("wportselect")["show"]
-    if wshow != state:
-        state = wshow
-        if state:
-            ports = list_ports.comports()
-            portnames = []
-            for port in ports:
-                portnames.append(port.name)
-            dpg.configure_item(
-                "comboports",
-                items=portnames,
-                default_value=portnames[0],
-            )
+    ports = list_ports.comports()
+    portnames = []
+    for port in ports:
+        portnames.append(port.name)
+    return portnames
 
 
 def wportsclose():
@@ -48,7 +36,13 @@ def wportsclose():
 
 
 def resappend(line: str):
-    dpg.add_text(line, parent="respinput")
+    texts = dpg.get_item_children("respinput")[1]
+    if texts:
+        pos = dpg.get_item_pos(texts[-1])
+        pos[1] += 15
+    else:
+        pos = [8, 0]
+    dpg.add_text(line, parent="respinput", pos=pos)
     dpg.set_y_scroll("respinput", -1)
 
 
@@ -57,24 +51,35 @@ def portconnect():
     resappend(f"Connecting {portname}")
     dpg.configure_item("wportselect", show=False)
     dpg.configure_item("bdiconnect", show=True)
-    back.run(portname)
-    speed = dpg.get_value("CRspeed")
-    acc = dpg.get_value("CRacc") * 1000
-    back.sendqueue.put(f"G0F{speed*60000:.0f}")
-    back.sendqueue.put(f"M201 X{acc:.0f} Y{acc:.0f} Z{acc:.0f}")
-    back.sendqueue.put(f"M202 X{acc:.0f} Y{acc:.0f} Z{acc:.0f}")
-    # dpg.configure_item('wportconnect', show=False)
+    if p.connect(portname):
+        speed = dpg.get_value("CRspeed") * 60000
+        acc = dpg.get_value("CRacc") * 1000
+        p.write(f"G0F{speed:.0f}")
+        p.write(f"M201 X{acc:.0f} Y{acc:.0f} Z{acc:.0f}")
+        p.write(f"M202 X{acc:.0f} Y{acc:.0f} Z{acc:.0f}")
+        for com in ["M114", "T2", "M155 S0"]:
+            p.write(com)
 
 
 def portdisconnect():
-    back.stop()
+    p.disconnect()
+
+
+def mselectport():
+    portnames = listports()
+    dpg.configure_item(
+        "comboports",
+        items=portnames,
+        default_value=portnames[0],
+    )
+    dpg.configure_item("wportselect", show=True)
 
 
 def mconnect():
     if dpg.get_value("comboports"):
         portconnect()
     else:
-        dpg.configure_item("wportselect", show=True)
+        mselectport()
 
 
 def updatecoords(resp: str):
@@ -87,58 +92,77 @@ def updatecoords(resp: str):
     dpg.set_value("ZCOORD", coords[2])
 
 
-def processqueue():
-    if not back.recivequeue.empty():
-        resp: str = back.recivequeue.get(block=False)
-        if not resp == "wait\r":
-            print([resp])
-        if resp:
-            if resp == "Connected":
-                dpg.configure_item("bconnect", show=False)
-                dpg.configure_item("bdiconnect", show=True)
-                resappend(resp)
-            elif resp == "Disconnected":
-                dpg.configure_item("bconnect", show=True)
-                dpg.configure_item("bdiconnect", show=False)
-                resappend(resp)
-            elif resp.startswith("X:"):
-                updatecoords(resp)
-            elif resp.endswith("\x00\x00\n"):
-                pass
-            elif resp.startswith(">") and not dpg.get_value("filtercom"):
-                pass
-            elif resp == "wait\r":
-                pass
-            elif resp.startswith("GUI") and not dpg.get_value("filtergui"):
-                pass
-            else:
-                resappend(resp)
+def connected(s):
+    dpg.configure_item("bconnect", show=False)
+    dpg.configure_item("bdiconnect", show=True)
+    resappend("Connected")
 
 
-def updateplots():
+p.onconnect += connected
+
+
+def disconnected(s):
+    dpg.configure_item("bconnect", show=True)
+    dpg.configure_item("bdiconnect", show=False)
+    resappend("Disconnected")
+
+
+p.ondisconnect += disconnected
+
+
+def recieved(s: str):
+    if s:
+        if s == "wait\r":
+            pass
+        elif s.startswith("X:"):
+            updatecoords(s)
+        elif s.startswith("GUI") and not dpg.get_value("filtergui"):
+            pass
+        elif s.startswith("ok") and not dpg.get_value("filterok"):
+            pass
+        else:
+            resappend(s)
+
+
+p.onrecieve += recieved
+p.onerror += recieved
+
+
+def sended(num: int, s: bytes):
+    if dpg.get_value("filtercom"):
+        resappend(f">>> {s.decode('ascii').split('*')[0]}")
+
+
+p.onsend += sended
+
+
+def updateplots(data):
     pass
+
+
+p.ondataready += updateplots
 
 
 def movebtn(sender, appdata):
     step = float(dpg.get_value("rstep"))
-    back.sendqueue.put("G91")
-    back.sendqueue.put(f"{sender}{step}")
-    back.sendqueue.put("M114")
+    p.write("G91")
+    p.write(f"{sender}{step}")
+    p.write("M114")
 
 
 def speedslidercb(sender, appdata):
-    back.sendqueue.put(f"G0F{appdata*60000:.0f}")
+    p.write(f"G0F{appdata*60000:.0f}")
 
 
 def accslidercb(sender, appdata):
     acc = f"{appdata*1000:.0f}"
-    back.sendqueue.put(f"M201 X{acc} Y{acc} Z{acc}")
-    back.sendqueue.put(f"M202 X{acc} Y{acc} Z{acc}")
+    p.write(f"M201 X{acc} Y{acc} Z{acc}")
+    p.write(f"M202 X{acc} Y{acc} Z{acc}")
 
 
 def homebtncb(sender):
-    back.sendqueue.put(sender)
-    back.sendqueue.put("M114")
+    p.write(sender)
+    p.write("M114")
     speed = dpg.get_value("CRspeed")
     acc = dpg.get_value("CRacc")
     speedslidercb(None, speed)
@@ -149,7 +173,7 @@ def comsendcb():
     if dpg.get_value("cominput"):
         for com in dpg.get_value("cominput").split("\n"):
             if com:
-                back.sendqueue.put(com)
+                p.write(com)
 
     if dpg.get_value("cbcls"):
         dpg.set_value("cominput", "")
@@ -158,10 +182,9 @@ def comsendcb():
 def cominputcb(sender, appdata: str):
     print([appdata])
     if dpg.get_value("sendoncr"):
-        # if appdata.endswith("\n"):
         for com in appdata.split("\n"):
             if com:
-                back.sendqueue.put(com)
+                p.write(com)
         if dpg.get_value("cbcls"):
             dpg.set_value("cominput", "")
 
@@ -173,18 +196,13 @@ def coordcb(sender, appdata: str):
         com = f"G0Y{float(appdata):.3f}"
     if sender == "ZCOORD":
         com = f"G0Z{float(appdata):.3f}"
-    back.sendqueue.put("G90")
-    back.sendqueue.put(com)
-    back.sendqueue.put("M114")
+    p.write("G90")
+    p.write(com)
+    p.write("M114")
 
 
 def getcoords():
-    back.sendqueue.put("M114")
-
-
-def clearsendqueue():
-    while not back.sendqueue.empty():
-        back.sendqueue.get()
+    p.write("M114")
 
 
 def cycleruncb():
@@ -196,18 +214,95 @@ def cycleruncb():
     dpg.set_value("slspeed", speed)
     accslidercb(None, acc)
     dpg.set_value("slacc", acc)
-    back.sendqueue.put("G91")
+    p.write("G91")
     if dpg.get_value("cbrec"):
         reclen = dpg.get_value("CRreclength")
 
-        back.sendqueue.put(f"G405{axis}{reclen}")
+        p.write(f"G405{axis}{reclen}")
     for i in range(dpg.get_value("CRnumber")):
-        back.sendqueue.put(f"G0{axis}{dist}")
-        back.sendqueue.put(f"G0{axis}{-dist}")
-    back.sendqueue.put("M114")
+        p.write(f"G0{axis}{dist}")
+        p.write(f"G0{axis}{-dist}")
+    p.write("M114")
 
 
 def cyclestopcb():
-    clearsendqueue()
-    back.sendqueue.put("M0")
-    back.sendqueue.put("M112")
+    p.clear()
+    p.write("M0")
+    p.write("M112")
+
+
+def pmerrorclose():
+    dpg.delete_item("pmerror")
+    dpg.remove_alias("pmerror")
+
+
+def pmonitorcb():
+    dpg.configure_item("pmonitor", show=True)
+
+
+def pmgetnewpos():
+    texts = dpg.get_item_children("pmtext")[1]
+    if texts:
+        pos = dpg.get_item_pos(texts[-1])
+        pos[1] += 15
+    else:
+        pos = [8, 0]
+    return pos
+
+
+def pmonrecieve(s):
+    dpg.add_text(f"<<< {s}\n", parent="pmtext", pos=pmgetnewpos())
+    dpg.set_y_scroll("pmtext", -1)
+
+
+p.onerror += pmonrecieve
+p.onrecieve += pmonrecieve
+
+
+def pmonsend(num, s: bytes):
+    dpg.add_text(
+        f">>> {s.decode('ascii').split('*')[0]}\n", parent="pmtext", pos=pmgetnewpos()
+    )
+    dpg.set_y_scroll("pmtext", -1)
+
+
+p.onsend += pmonsend
+
+
+def pmclosecb():
+    dpg.configure_item("pmonitor", show=False)
+
+
+def pmresizecb():
+    width = dpg.get_item_width("pmonitor")
+    height = dpg.get_item_height("pmonitor")
+    dpg.set_item_height("pmtext", height - 60)
+    dpg.set_item_width("pmtext", width - 15)
+    dpg.set_y_scroll("pmtext", -1)
+
+
+def pmclear():
+    for text in dpg.get_item_children("pmtext")[1]:
+        dpg.delete_item(text)
+
+
+# def pemulatorcb():
+#     ports = list_ports.comports()
+#     portnames = []
+#     for port in ports:
+#         portnames.append(port.name)
+#     dpg.configure_item("peport", items=portnames)
+#     dpg.configure_item("pewindow", show=True)
+
+
+# responder = Responder()
+
+
+# def pestart():
+#     responder.start(dpg.get_value("peport"))
+
+
+# def pestop():
+#     responder.stop()
+#     responder.join()
+#     dpg.configure_item("pewindow", show=False)

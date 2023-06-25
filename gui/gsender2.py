@@ -89,7 +89,8 @@ def reciever():
                 if s.endswith("\r") or s.endswith("\n"):
                     # print([s])
                     if s == f"ok {comnum}\r" or s == f"ok\r":
-                        confirmed.release()
+                        if confirmed.locked():
+                            confirmed.release()
                     elif s.startswith("Resend"):
                         comnum = int(s.split(":")[1])
                         resend = True

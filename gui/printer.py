@@ -48,7 +48,7 @@ class Printer(object):
         def __init__(self, port: Serial) -> None:
             self.stop = False
             self.port = port
-            self.comnum = 1
+            self.comnum = 0
             self.queue = Queue()
             self.resendflag = False
             self.confirmed = Lock()
@@ -95,6 +95,7 @@ class Printer(object):
                         com = ""
                     except SerialException:
                         self.onerror("Connection lost")
+                        # self.kill()
                     if not self.confirmed.acquire(timeout=10):
                         self.onerror("No confirmation received")
             self.stop = False
@@ -125,33 +126,56 @@ class Printer(object):
             self.onerror = EventSlot()
             self.onconfirm = EventSlot()
             self.onresend = EventSlot()
+            self.ondata = EventSlot()
             self.comnum = None
+            self.mdata = []
+            self.mrec = False
             return super().__init__()
 
         def run(self):
+            """Main reciever thread loop"""
             while not self.stop:
                 try:
                     s = self.port.read_until(b"\r").decode("ascii")
-                    # print(f"<<<{[s]}")
                     if s == f"ok {self.comnum}\r":
                         self.onconfirm(int(s.split(" ")[1]))
+                        self.onrecieve(s)
                     elif s == f"ok\r":
                         self.onconfirm()
+                        self.onrecieve(s)
                     elif s.startswith("Resend"):
                         self.onresend(int(s.split(":")[1]))
                     elif s.startswith("X:"):
                         self.onconfirm()
                         self.onrecieve(s)
+                    elif s == "Data start\r":
+                        print("catched " + s)
+                        self.mrec = True
+                        self.mdata = []
+                        self.onrecieve("Receiving data")
+                    elif self.mrec:
+                        self.mdata.append(s)
+                    elif s == "Data end\r":
+                        self.onrecieve(f"Received {len(self.mdata)} points")
+                        self.mrec = False
+                        self.ondata(self.mdata)
                     elif s:
                         self.onrecieve(s)
                 except SerialException:
                     self.onerror("Connection lost")
+                    # self.kill()
             self.stop = False
 
         def kill(self):
+            """Kill sender thred"""
             self.stop = True
 
-        def sended(self, comnum: int, command):
+        def sended(self, comnum: int, *args):
+            """Metod for informing Reciever about last sent command number to wait for confirmation
+
+            Args:
+                comnum (int): Sent command number
+            """
             self.comnum = comnum
 
     def __init__(self) -> None:
@@ -164,39 +188,55 @@ class Printer(object):
         self.onconnect = EventSlot()
         self.ondisconnect = EventSlot()
         self.onerror = EventSlot()
+        self.ondataready = EventSlot()
+        self.onsend = EventSlot()
 
     def connect(self, portname: str) -> bool:
+        """Connect to printer on given port
+
+        Args:
+            portname (str): Port name. ie 'COM8'
+
+        Returns:
+            bool: True if connected sacsessfully, else False
+        """
         try:
             self.port = Serial(portname, timeout=10)
         except SerialException:
             self.onerror("Failed to open port")
+            return False
         else:
             self.port.write(startsring)
             resp = self.port.read_until(b"\n")
             if not resp == startsring:
                 self.onerror("No startstring recieved. Closing port")
                 self.port.close()
+                return False
             else:
                 self.sender = self.Sender(self.port)
                 self.reciever = self.Reciever(self.port)
 
                 self.sender.onerror += self.onerror
+                self.sender.onsend += self.onsend
                 self.reciever.onerror += self.onerror
                 self.sender.onsend += self.reciever.sended
                 self.reciever.onconfirm += self.sender.confirm
                 self.reciever.onresend += self.sender.resend
                 self.reciever.onrecieve += self.onrecieve
+                self.reciever.ondata += self.ondataready
 
                 self.sender.start()
                 self.reciever.start()
                 self.onconnect("Connected")
+                return True
 
     def disconnect(self) -> bool:
+        """Disconnect from printer, purge send queue, and kill reciver and sender threads"""
         ctime = time()
         if self.sender and self.sender.is_alive():
             self.sender.kill()
             self.sender.join()
-            ctime=time()
+            ctime = time()
         if self.reciever and self.reciever.is_alive():
             self.reciever.kill()
             self.port.cancel_read()
@@ -204,7 +244,12 @@ class Printer(object):
         self.port.close()
         self.ondisconnect("Disconnected")
 
-    def write(self, command: str) -> int:
+    def write(self, command: str) -> None:
+        """Formats and sends a string to printer
+
+        Args:
+            command (str): String to send
+        """
         if command and self.sender:
             self.sender.queue.put(command)
         elif not command:
@@ -213,32 +258,40 @@ class Printer(object):
             self.onerror("Sender is not runing")
 
     def clear(self) -> None:
+        """Purges sender queue"""
         self.sender.clear()
 
 
 class Responder(Thread):
-    def __init__(self, portname: str) -> None:
-        self.port = Serial(portname, timeout=5)
+    def __init__(self) -> None:
+        self.port = None
         self._stop = False
         super().__init__()
 
+    def start(self, portname: str) -> None:
+        self.port = Serial(portname, timeout=5)
+        return super().start()
+
     def run(self) -> None:
+        """Responder main loop"""
         while not self._stop:
             raw = self.port.readline()
             if raw:
                 line = raw.decode("ASCII")
-                # print(f">>> {line}")
+                print(f">>> {line}")
                 num = line[1 : line.find(" ")]
                 com = line[line.find(" ") + 1 : line.find("*")]
                 chsum = line[line.find("*") + 1 :]
                 if raw == startsring:
-                    self.port.write(startsring)
+                    # self.port.write(startsring)
+                    pass
                 elif com.startswith("M114"):
                     self.port.write("X:213 Y:145 Z:789 E:NAN\r".encode("ascii"))
                 else:
                     self.port.write(f"ok {num}\r".encode("ascii"))
             else:
-                self.port.write(b"wait\r")
+                # self.port.write(b"wait\r")
+                pass
         self._stop = False
 
     def stop(self) -> None:
@@ -248,18 +301,17 @@ class Responder(Thread):
 
 if __name__ == "__main__":
     p = Printer()
-    r = Responder("COM9")
-    p.onrecieve = lambda resp: print(f'<<< {[resp]}')
+    r = Responder()
+    p.onrecieve = lambda resp: print(f"<<< {[resp]}")
     p.onconnect = print
     p.ondisconnect = print
     p.onerror = print
 
-    r.start()
-    p.connect("COM8")
-    p.sender.onsend += lambda comnum, com: print(f'>>> {[com]}')
-
-    p.write("M105")
-    p.write("M114")
-    sleep(5)
-    p.disconnect()
+    r.start("COM9")
+    if p.connect("COM8"):
+        p.sender.onsend += lambda comnum, com: print(f">>> {[com]}")
+        p.write("M105")
+        p.write("M114")
+        sleep(5)
+        p.disconnect()
     r.stop()
