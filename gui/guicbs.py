@@ -6,6 +6,8 @@ p = Printer()
 
 
 def windowresize():
+    """Adjasts main window layout on window resize
+    """
     pwwidth = dpg.get_item_width("primarywindow")
     pwheight = dpg.get_item_height("primarywindow")
     x_off = pwwidth - 258.0
